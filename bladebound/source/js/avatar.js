@@ -40,6 +40,13 @@ export function faceTexture({ brows = 'angry', eyes = 'normal', mouth = 'smirk',
       ctx.fillStyle = eyeGlow;
       ctx.beginPath(); ctx.ellipse(ex, ey, 26, 14, s * -0.35, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    } else if (eyes === 'bold') {
+      // big glossy cartoon eyes for the icon, read at small sizes
+      ctx.fillStyle = '#120a10';
+      ctx.beginPath(); ctx.ellipse(ex + s * 4, ey + 4, 25, 33, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(ex + s * 4 + 8, ey - 8, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex + s * 4 - 7, ey + 17, 4, 0, Math.PI * 2); ctx.fill();
     } else {
       ctx.fillStyle = '#16100c';
       ctx.beginPath(); ctx.ellipse(ex, ey, 17, eyes === 'happy' ? 9 : 24, 0, 0, Math.PI * 2); ctx.fill();
@@ -48,6 +55,18 @@ export function faceTexture({ brows = 'angry', eyes = 'normal', mouth = 'smirk',
     }
     // brows
     if (brows === 'none') continue;
+    if (brows === 'fierce') {
+      // thick wedge, low and heavy at the inner end: cuts into the top of the eye
+      ctx.fillStyle = '#120a10';
+      ctx.beginPath();
+      ctx.moveTo(cx + s * 14, ey - 16);
+      ctx.lineTo(cx + s * 30, ey - 44);
+      ctx.lineTo(cx + s * 104, ey - 66);
+      ctx.quadraticCurveTo(cx + s * 112, ey - 56, cx + s * 100, ey - 48);
+      ctx.lineTo(cx + s * 34, ey - 6);
+      ctx.closePath(); ctx.fill();
+      continue;
+    }
     ctx.fillStyle = beard ? beard : '#2a1a10';
     ctx.save();
     ctx.translate(ex, ey - 46);
@@ -66,6 +85,22 @@ export function faceTexture({ brows = 'angry', eyes = 'normal', mouth = 'smirk',
       ctx.fillStyle = '#2a140c';
       ctx.moveTo(cx - 52, 318); ctx.quadraticCurveTo(cx, 372, cx + 52, 318); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.fillRect(cx - 40, 320, 80, 10);
+    } else if (mouth === 'grit') {
+      // clenched-teeth grin: intense but confident
+      const path = new Path2D();
+      path.moveTo(cx - 76, 306);
+      path.quadraticCurveTo(cx + 2, 326, cx + 82, 296);
+      path.quadraticCurveTo(cx + 76, 354, cx + 4, 362);
+      path.quadraticCurveTo(cx - 66, 358, cx - 76, 306);
+      path.closePath();
+      ctx.fillStyle = '#ffffff'; ctx.fill(path);
+      ctx.save(); ctx.clip(path);
+      ctx.strokeStyle = '#1a0a0e'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(cx - 80, 334); ctx.quadraticCurveTo(cx, 346, cx + 86, 322); ctx.stroke();
+      for (const x of [-42, -10, 22, 52]) { ctx.beginPath(); ctx.moveTo(cx + x, 296); ctx.lineTo(cx + x + 3, 372); ctx.stroke(); }
+      ctx.restore();
+      ctx.lineWidth = 9; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1a0a0e'; ctx.stroke(path);
+      ctx.beginPath();
     } else if (mouth === 'frown') { ctx.moveTo(cx - 40, 342); ctx.quadraticCurveTo(cx, 312, cx + 40, 342); }
     else { ctx.moveTo(cx - 38, 330); ctx.quadraticCurveTo(cx + 10, 342, cx + 44, 318); }
     ctx.stroke();
@@ -137,6 +172,86 @@ function hairShell(mat, { yMin = -0.2, openFront = true, R = 0.645, Hh = 1.29, c
   return g;
 }
 
+// One smooth hair lock: a tapered tube along a quadratic curve, flattened so it
+// lies against the head (wide along the surface, thin away from it).
+function lockGeometry(p0, p1, p2, { r0 = 0.2, flat = 0.55, pow = 0.9, segs = 18, radial = 12, root, tip }) {
+  const curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+  const pos = [], nor = [], col = [], idx = [];
+  const c = new THREE.Color();
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const p = curve.getPoint(t);
+    const T = curve.getTangent(t).normalize();
+    const U = p.clone().sub(new THREE.Vector3(0, -0.1, 0)).normalize();
+    const B = new THREE.Vector3().crossVectors(T, U);
+    if (B.lengthSq() < 1e-6) B.set(1, 0, 0);
+    B.normalize();
+    const N = new THREE.Vector3().crossVectors(B, T).normalize();
+    const rad = r0 * Math.pow(1 - t, pow) * (1 + 0.25 * Math.sin(Math.min(1, t * 3) * Math.PI / 2) * (1 - t)) + 0.004;
+    c.copy(root).lerp(tip, Math.pow(t, 0.8));
+    for (let j = 0; j <= radial; j++) {
+      const a = (j / radial) * Math.PI * 2;
+      const ca = Math.cos(a), sa = Math.sin(a);
+      pos.push(p.x + B.x * ca * rad + N.x * sa * rad * flat, p.y + B.y * ca * rad + N.y * sa * rad * flat, p.z + B.z * ca * rad + N.z * sa * rad * flat);
+      const n = new THREE.Vector3().addScaledVector(B, ca * flat).addScaledVector(N, sa).normalize();
+      nor.push(n.x, n.y, n.z);
+      col.push(c.r, c.g, c.b);
+    }
+  }
+  for (let i = 0; i < segs; i++) {
+    for (let j = 0; j < radial; j++) {
+      const a = i * (radial + 1) + j, b = a + radial + 1;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  return g;
+}
+
+// Anime-style swept hair like the popular Roblox hair accessories: a smooth cap
+// plus big locks: bangs over the forehead, spikes sweeping up and back.
+function sweptHair(M, color, tipColor) {
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const base = new THREE.Color(color);
+  const root = base.clone().multiplyScalar(0.8);
+  const tip = new THREE.Color(tipColor ?? color);
+  const g = new THREE.Group();
+  g.add(hairShell(M({ color: root, roughness: 0.62 }), { yMin: -0.32 }));
+  const mat = M({ color: 0xffffff, vertexColors: true, roughness: 0.6 });
+  // [root (buried in the cap), bend, tip, base radius, taper power, flatness]
+  const locks = [
+    // a closed fringe of five wide bangs, ending above the brows
+    [V(-0.42, 0.5, 0.2), V(-0.64, 0.56, 0.62), V(-0.58, 0.27, 0.66), 0.27, 0.6, 0.42],
+    [V(-0.22, 0.52, 0.16), V(-0.32, 0.72, 0.74), V(-0.3, 0.27, 0.75), 0.3, 0.6, 0.42],
+    [V(0.0, 0.52, 0.14), V(0.02, 0.76, 0.76), V(0.07, 0.23, 0.77), 0.32, 0.6, 0.42],
+    [V(0.22, 0.52, 0.16), V(0.34, 0.72, 0.74), V(0.38, 0.29, 0.73), 0.3, 0.6, 0.42],
+    [V(0.42, 0.5, 0.2), V(0.64, 0.56, 0.6), V(0.66, 0.28, 0.58), 0.27, 0.6, 0.42],
+    // crown spikes, up and back
+    [V(-0.05, 0.42, 0.0), V(-0.1, 1.15, 0.0), V(0.05, 1.45, -0.45), 0.36, 0.9, 0.7],
+    [V(-0.3, 0.42, -0.05), V(-0.65, 1.0, -0.1), V(-0.95, 1.12, -0.45), 0.33, 0.9, 0.7],
+    [V(0.3, 0.42, -0.05), V(0.65, 1.0, -0.1), V(0.98, 1.06, -0.4), 0.33, 0.9, 0.7],
+    // sides and back
+    [V(-0.42, 0.25, -0.1), V(-0.95, 0.45, -0.25), V(-1.18, 0.3, -0.55), 0.28, 0.9, 0.65],
+    [V(0.42, 0.25, -0.1), V(0.95, 0.45, -0.25), V(1.18, 0.3, -0.55), 0.28, 0.9, 0.65],
+    [V(0.0, 0.35, -0.3), V(0.0, 0.75, -0.85), V(0.0, 0.6, -1.3), 0.34, 0.9, 0.65],
+    [V(-0.3, 0.05, -0.32), V(-0.62, 0.0, -0.82), V(-0.7, -0.25, -1.05), 0.28, 0.9, 0.65],
+    [V(0.3, 0.05, -0.32), V(0.62, 0.0, -0.82), V(0.7, -0.25, -1.05), 0.28, 0.9, 0.65],
+    // sideburns
+    [V(-0.5, 0.4, 0.2), V(-0.7, 0.14, 0.34), V(-0.65, -0.14, 0.3), 0.17, 0.7, 0.5],
+    [V(0.5, 0.4, 0.2), V(0.7, 0.14, 0.34), V(0.65, -0.14, 0.3), 0.17, 0.7, 0.5],
+  ];
+  for (const [a, b, c, r0, pow, flat] of locks) {
+    const m = new THREE.Mesh(lockGeometry(a, b, c, { r0, pow, flat, root, tip }), mat);
+    m.castShadow = true;
+    g.add(m);
+  }
+  return g;
+}
+
 // Spiky hair (cones) with dark roots and coloured tips.
 function spikyHair(r, mat, { count = 30, wind = new THREE.Vector3(0.4, 0.15, -0.3), len = [0.5, 1.0] } = {}) {
   const g = new THREE.Group();
@@ -165,9 +280,10 @@ export function buildAvatar(o = {}) {
     face = {}, hair = null, hairColor = 0x2a1a10, hat = null, hatColor = 0x6a2a8a,
     apron = null, belt = 0x3a2416, buckle = 0xd8a830, cape = null, pauldrons = null, bag = null,
     armor = null, gloves = null, seed = 1, rim = {}, pose = {},
+    roughness = 0.7, hairTip = null, strap = null, scarf = null,
   } = o;
   const r = rng(seed);
-  const M = (opts) => rimMat({ roughness: 0.7, ...opts }, rim);
+  const M = (opts) => rimMat({ roughness, ...opts }, rim);
   const mSkin = M({ color: skin, roughness: 0.55 });
   const mShirt = M({ color: shirt });
   const mPants = M({ color: pants });
@@ -209,6 +325,35 @@ export function buildAvatar(o = {}) {
       const strap = rb(0.16, 1.0, 0.06, 0.02, M({ color: apron }));
       strap.position.set(s * 0.62, 1.6, 0.53); torsoPivot.add(strap);
     }
+  }
+  if (scarf) {
+    // scarf wrapped around the neck, knotted at the front, two tails blowing out
+    const sm = M({ color: scarf.color, roughness: 0.65 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.17, 14, 48), sm);
+    ring.rotation.x = Math.PI / 2;
+    ring.scale.set(1.04, 0.86, 1.15);
+    ring.position.y = 2.1;
+    ring.castShadow = true;
+    torsoPivot.add(ring);
+    const k = scarf.side ?? 1;
+    const knot = rb(0.34, 0.3, 0.2, 0.09, sm);
+    knot.position.set(k * 0.36, 1.98, 0.56); knot.rotation.z = k * 0.3;
+    torsoPivot.add(knot);
+    const tails = scarf.tails ?? [[0.34, 1.25, 0.95, -0.25], [0.3, 0.95, 1.35, 0.15]];
+    for (const [w, len, ang, back] of tails) {
+      const t = rb(w, len, 0.08, 0.035, sm);
+      t.geometry.translate(0, -len / 2, 0);
+      t.position.set(k * 0.4, 1.95, 0.6);
+      t.rotation.set(back, 0, k * ang);
+      torsoPivot.add(t);
+    }
+  }
+  if (strap) {
+    // diagonal sword strap from the left shoulder to the right hip
+    const st = rb(0.26, 2.75, 0.08, 0.03, M({ color: strap }));
+    st.position.set(0, 1.0, 0.53); st.rotation.z = -0.78; torsoPivot.add(st);
+    const ring = rb(0.3, 0.3, 0.1, 0.05, M({ color: buckle, metalness: 0.9, roughness: 0.3 }));
+    ring.position.set(0.32, 1.32, 0.58); ring.rotation.z = -0.78; torsoPivot.add(ring);
   }
   if (bag) {
     const strap = rb(0.18, 2.6, 0.06, 0.02, M({ color: bag }));
@@ -259,6 +404,7 @@ export function buildAvatar(o = {}) {
   }
   const hairMat = M({ color: hairColor, roughness: 0.5, flatShading: true });
   if (hair === 'spiky') headPivot.add(spikyHair(r, hairMat));
+  if (hair === 'swept') headPivot.add(sweptHair(M, hairColor, hairTip));
   if (hair === 'short') {
     headPivot.add(hairShell(hairMat, { yMin: -0.1 }));
   }

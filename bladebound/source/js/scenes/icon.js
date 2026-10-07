@@ -21,27 +21,30 @@ export function build({ W, H, DPR, q }) {
   scene.fog = new THREE.FogExp2(0x000000, 0.001);   // only switches fog on; look is defined in fog.js
 
   const num = (k, d) => (q.get(k) || d).split(',').map(Number);
-  const [cx, cy, cz, fov] = num('cam', '1.1,3.9,8.6,35');
+  // longer lens than the thumbnails: keeps the sword arm from ballooning towards the camera
+  const [cx, cy, cz, fov] = num('cam', '0.4,4.8,10.5,24');
   const cam = new THREE.PerspectiveCamera(fov, W / H, 0.1, 9000);
   cam.position.set(cx, cy, cz);
-  cam.lookAt(new THREE.Vector3(0, 4.55, 0));
+  cam.lookAt(new THREE.Vector3(...num('look', '-0.3,5.1,0')));
   cam.updateMatrixWorld();
   cam.updateProjectionMatrix();
 
   // eclipse centred just above the head
   const head = new THREE.Vector3(0, 4.62, 0);
   const eclipseDir = head.clone().add(new THREE.Vector3(0.15, 0.55, 0)).sub(cam.position).normalize();
-  const sky = buildSky({ camera: cam, eclipseDir, eclipseRadius: +(q.get('ring') || 0.165) });
+  // ring size is an angle: scale it with the lens so it frames the head the same way
+  const ringDefault = 0.165 * Math.tan(THREE.MathUtils.degToRad(fov / 2)) / Math.tan(THREE.MathUtils.degToRad(17.5));
+  const sky = buildSky({ camera: cam, eclipseDir, eclipseRadius: +(q.get('ring') || ringDefault) });
   sky.position.copy(cam.position);
   scene.add(sky);
 
   // ---------- lights ----------
   scene.add(new THREE.HemisphereLight(0x4a3a8a, 0x1a0610, 0.7));
-  const key = new THREE.DirectionalLight(0xffd6e8, 1.7);       // soft key on the face from front-left
-  key.position.set(-6, 7, 10);
+  const key = new THREE.DirectionalLight(0xffe6ee, +(q.get('key') || 2.1));   // key on the face from front-left
+  key.position.set(-5, 6, 10);
   scene.add(key);
-  const rimLight = new THREE.DirectionalLight(0xff2a1c, 3.4);  // eclipse backlight
-  rimLight.position.copy(eclipseDir).multiplyScalar(40).add(new THREE.Vector3(4, 6, -20));
+  const rimLight = new THREE.DirectionalLight(0xff2a1c, +(q.get('rimI') || 2.6));  // eclipse backlight, low behind-right
+  rimLight.position.set(9, 5, -14);
   scene.add(rimLight);
   const rimL = new THREE.DirectionalLight(0x8a5cff, 1.6);      // violet edge from the left
   rimL.position.set(-12, 4, -8);
@@ -50,21 +53,35 @@ export function build({ W, H, DPR, q }) {
   const r = rng(77);
 
   // ---------- the hero ----------
-  const [ax, ay, az] = num('arm', '-2.55,0,0.35');
   const hero = buildAvatar({
-    seed: 3, skin: 0xe6b48a, shirt: 0x231d33, pants: 0x17141f, shoes: 0x2a1d18, belt: 0x2a1d18, buckle: 0xb8a0e0, sleeves: 'long', gloves: 0x2a2236,
-    hair: 'spiky', hairColor: 0x15101e, face: { brows: 'angry', mouth: 'smirk' },
-    pauldrons: 0x3a3650,
+    seed: 3, skin: 0xefc39e, shirt: 0x302868, pants: 0x1d1832, shoes: 0x2a1d18, belt: 0x2a1d18, buckle: 0xd9b45a,
+    sleeves: 'long', roughness: 0.55,
+    hair: 'swept', hairColor: 0x15101e, hairTip: 0x3b2b6e,
+    face: { brows: 'fierce', eyes: 'bold', mouth: q.get('mouth') || 'grit' },
+    strap: 0x4a2c1a,
+    scarf: { color: 0x8a1020, side: 1, tails: [[0.3, 0.9, 0.45, -0.2], [0.26, 0.7, 0.8, 0.1]] },
     rim: { right: 0xff3a2a, left: 0xa070ff, strengthR: 0.9, strengthL: 0.7, power: 2.2 },
-    pose: { armR: [ax, ay, az], armL: [0.1, 0, 0.12], headY: +(q.get('headY') || 0.18) },
+    pose: { armL: num('armL', '0.25,0,0.1'), headY: +(q.get('headY') || -0.1), headX: +(q.get('headX') || 0) },
   });
-  hero.rotation.y = +(q.get('rot') || -0.32);
+  hero.rotation.y = +(q.get('rot') || 0.15);
   scene.add(hero);
+  scene.updateMatrixWorld(true);
+  // point the sword arm along a world direction (an R6 arm hangs along -Y)
+  const pointArm = (side, dir) => {
+    const piv = hero.userData.arms[side].pivot;
+    const pq = new THREE.Quaternion();
+    piv.parent.getWorldQuaternion(pq);
+    const wq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(...dir).normalize());
+    piv.quaternion.copy(pq.invert().multiply(wq));
+    piv.updateWorldMatrix(false, true);
+  };
+  pointArm('R', num('armDir', '-0.25,1,-0.05'));
   const sword = buildSword({ length: 4.2, width: 0.5, style: 'crystal', blade: 0x1c0836, metalness: 0.5, roughness: 0.25, glow: 0xa040ff, veins: { seed: 43 }, glowIntensity: 1.7, guard: 0x2b2836, gem: 0x8a2cff });
   const hold = holdItem(hero, 'R', sword, { rx: Math.PI / 2, offset: 0.5 });
   scene.updateMatrixWorld(true);
-  const [tx, ty, tz] = num('aim', '3.5,7.7,-2.3');
-  aimItem(hold, sword, new THREE.Vector3(tx, ty, tz));
+  const from = new THREE.Vector3();
+  hold.getWorldPosition(from);
+  aimItem(hold, sword, from.add(new THREE.Vector3(...num('swordDir', '1,0.35,-0.2')).normalize()));
   scene.updateMatrixWorld(true);
 
   // ---------- violet energy around the blade ----------
