@@ -5,6 +5,11 @@ const {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  GuildFeature,
+  GuildVerificationLevel,
+  GuildExplicitContentFilter,
+  GuildDefaultMessageNotifications,
+  Locale,
 } = require('discord.js');
 const config = require('./config');
 
@@ -18,12 +23,80 @@ const ROLLEN_RECHTE = {
 
 const NUR_LESEN = [P.SendMessages, P.SendMessagesInThreads, P.CreatePublicThreads, P.CreatePrivateThreads];
 
-// Erstellt alles, was laut config.js noch fehlt.
-async function einrichten(guild, botId) {
+// ── Schrift ──────────────────────────────────────────────────
+
+const ABC = 'abcdefghijklmnopqrstuvwxyz';
+const SMALLCAPS = [...'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ'];
+const ZURUECK = Object.fromEntries(SMALLCAPS.map((z, i) => [z, ABC[i]]));
+
+const SCHRIFTEN = {
+  normal: (text) => text,
+  smallcaps: (text) => [...text.toLowerCase()].map((z) => SMALLCAPS[ABC.indexOf(z)] ?? z).join(''),
+  bold: (text) =>
+    [...text]
+      .map((z) => {
+        const c = z.codePointAt(0);
+        if (c >= 97 && c <= 122) return String.fromCodePoint(0x1d5ee + c - 97); // a-z
+        if (c >= 65 && c <= 90) return String.fromCodePoint(0x1d5d4 + c - 65); // A-Z
+        if (c >= 48 && c <= 57) return String.fromCodePoint(0x1d7ec + c - 48); // 0-9
+        return z;
+      })
+      .join(''),
+};
+
+function anzeigeName(format, emoji, name) {
+  const schrift = SCHRIFTEN[config.schrift] ?? SCHRIFTEN.normal;
+  return format.replace('{emoji}', emoji ?? '').replace('{name}', schrift(name)).trim();
+}
+
+// Macht aus "「📜」ɪɴꜰᴏ" oder "📜 INFO" wieder "info" – so findet der Bot
+// seine Kanäle, egal welche Schrift oder welches Format gerade eingestellt ist.
+function schluessel(name) {
+  return [...name.normalize('NFKC')]
+    .map((z) => ZURUECK[z] ?? z)
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// ── Einrichten ───────────────────────────────────────────────
+
+function rechtePruefen(guild) {
   if (!guild.members.me.permissions.has(P.Administrator)) {
     throw new Error('Der Bot braucht Administrator-Rechte. Lade ihn mit dem Link aus der README neu ein.');
   }
+}
 
+// Löscht alle Kanäle und baut danach alles neu auf.
+async function zuruecksetzen(guild, botId) {
+  rechtePruefen(guild);
+  console.log(`\n🗑️  Lösche alle Kanäle auf "${guild.name}" …\n`);
+
+  // Regel- und Update-Kanal eines Community-Servers lassen sich erst löschen,
+  // wenn neue eingetragen sind – die kommen deshalb ganz am Ende dran.
+  const spaeter = [];
+  for (const kanal of [...guild.channels.cache.values()].filter((c) => !c.isThread())) {
+    try {
+      await kanal.delete();
+      console.log(`  🗑️  "${kanal.name}" gelöscht`);
+    } catch {
+      spaeter.push(kanal);
+    }
+  }
+
+  await einrichten(guild, botId);
+
+  for (const kanal of spaeter) {
+    await kanal
+      .delete()
+      .then(() => console.log(`  🗑️  "${kanal.name}" gelöscht`))
+      .catch((err) => console.log(`  ⚠️  "${kanal.name}" konnte nicht gelöscht werden: ${err.message}`));
+  }
+}
+
+// Erstellt alles, was laut config.js noch fehlt.
+async function einrichten(guild, botId) {
+  rechtePruefen(guild);
   console.log(`\n⚔️  Richte "${guild.name}" ein …\n`);
 
   const rollen = {};
@@ -39,17 +112,18 @@ async function einrichten(guild, botId) {
 
   const kanaele = {};
   const nachrichten = [];
+  const community = {};
   for (const k of config.kategorien) {
     const kategorie = await kanalHolen(guild, {
-      name: k.name,
+      name: anzeigeName(config.kategorieFormat, k.emoji, k.name.toUpperCase()),
       type: ChannelType.GuildCategory,
       permissionOverwrites: rechte(k.zugriff, ctx, false),
     });
 
     for (const c of k.kanaele) {
       const zugriff = c.zugriff ?? k.zugriff;
-      kanaele[c.name] = await kanalHolen(guild, {
-        name: c.name,
+      const kanal = await kanalHolen(guild, {
+        name: anzeigeName(config.kanalFormat, c.emoji, c.name),
         type: c.voice ? ChannelType.GuildVoice : ChannelType.GuildText,
         parent: kategorie.id,
         topic: c.thema,
@@ -57,9 +131,13 @@ async function einrichten(guild, botId) {
         userLimit: c.limit,
         permissionOverwrites: rechte(zugriff, ctx, c.voice),
       });
-      if (c.nachricht) nachrichten.push([kanaele[c.name], c.nachricht]);
+      kanaele[c.name] = kanal;
+      if (c.nachricht) nachrichten.push([kanal, c.nachricht]);
+      if (c.community) community[c.community] = kanal;
     }
   }
+
+  if (config.communityAktivieren) await communityAktivieren(guild, community);
 
   for (const [kanal, art] of nachrichten) {
     await nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId });
@@ -86,17 +164,16 @@ async function rolleHolen(guild, r) {
 }
 
 async function kanalHolen(guild, daten) {
-  // Discord schreibt Textkanäle klein und mit Bindestrichen ("Rare Drops" → "rare-drops")
-  const name = daten.type === ChannelType.GuildText ? daten.name.toLowerCase().replace(/\s+/g, '-') : daten.name;
+  const key = schluessel(daten.name);
   const vorhanden = guild.channels.cache.find(
-    (c) => c.name === name && c.type === daten.type && (c.parentId ?? undefined) === daten.parent,
+    (c) => c.type === daten.type && (c.parentId ?? undefined) === daten.parent && schluessel(c.name) === key,
   );
   if (vorhanden) {
-    console.log(`  ⏭️  "${daten.name}" gibt es schon`);
+    console.log(`  ⏭️  "${vorhanden.name}" gibt es schon`);
     return vorhanden;
   }
   const kanal = await guild.channels.create(daten);
-  console.log(`  ✅ "${daten.name}" erstellt`);
+  console.log(`  ✅ "${kanal.name}" erstellt`);
   return kanal;
 }
 
@@ -122,15 +199,57 @@ function rechte(zugriff, { everyone, mitglied, team }, voice) {
         { id: everyone.id, deny: [P.ViewChannel] },
         { id: mitglied.id, allow: voice ? sehen : [...sehen, P.SendMessages] },
       ];
+    case 'team':
+      return [
+        { id: everyone.id, deny: [P.ViewChannel] },
+        ...team.map((r) => ({ id: r.id, allow: voice ? sehen : [...sehen, P.SendMessages] })),
+      ];
     default: // 'alle'
       return [];
+  }
+}
+
+async function communityAktivieren(guild, { regeln, updates }) {
+  if (!regeln || !updates) {
+    console.log('  ⚠️  Community: In config.js fehlt ein Kanal mit community: \'regeln\' oder \'updates\'');
+    return;
+  }
+
+  const istAn = guild.features.includes(GuildFeature.Community);
+  if (
+    istAn &&
+    guild.rulesChannelId === regeln.id &&
+    guild.publicUpdatesChannelId === updates.id &&
+    guild.safetyAlertsChannelId === updates.id
+  ) {
+    console.log('  ⏭️  Community ist schon aktiv');
+    return;
+  }
+
+  const daten = { rulesChannel: regeln, publicUpdatesChannel: updates, safetyAlertsChannel: updates };
+  if (!istAn) {
+    Object.assign(daten, {
+      features: [...guild.features, GuildFeature.Community],
+      verificationLevel: Math.max(guild.verificationLevel, GuildVerificationLevel.Low),
+      explicitContentFilter: GuildExplicitContentFilter.AllMembers,
+      defaultMessageNotifications: GuildDefaultMessageNotifications.OnlyMentions,
+      preferredLocale: Locale.EnglishUS,
+    });
+  }
+
+  try {
+    await guild.edit(daten);
+    console.log(istAn ? '  ✅ Community-Kanäle aktualisiert' : '  ✅ Community aktiviert');
+  } catch (err) {
+    console.log(`  ⚠️  Community konnte nicht aktiviert werden: ${err.message}`);
+    console.log('      Du kannst sie unter Servereinstellungen → Community selbst aktivieren.');
   }
 }
 
 async function nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId }) {
   const alt = await kanal.messages.fetch({ limit: 20 });
   if (alt.some((m) => m.author.id === botId)) {
-    console.log(`  ⏭️  Nachricht in #${kanal.name} gibt es schon`);
+    console.log(`  ⏭️  Nachricht in "${kanal.name}" gibt es schon`);
     return;
   }
 
@@ -139,7 +258,7 @@ async function nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId }) {
   const buttons = [];
 
   if (art === 'willkommen' && config.spielLink) {
-    text += `\n\n🎮 **Jetzt spielen:** ${config.spielLink}`;
+    text += `\n\n${n.spielLink} ${config.spielLink}`;
   }
 
   if (art === 'regeln' && config.regelnBestaetigen) {
@@ -147,7 +266,7 @@ async function nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId }) {
     buttons.push(
       new ButtonBuilder()
         .setCustomId(`bb:regeln:${ctx.mitglied.id}`)
-        .setLabel('Regeln akzeptieren')
+        .setLabel(n.buttonText)
         .setEmoji('✅')
         .setStyle(ButtonStyle.Success),
     );
@@ -174,7 +293,7 @@ async function nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId }) {
   }
 
   await kanal.send({ embeds: [embed], components: zeilen });
-  console.log(`  ✅ Nachricht in #${kanal.name} gepostet`);
+  console.log(`  ✅ Nachricht in "${kanal.name}" gepostet`);
 }
 
-module.exports = { einrichten };
+module.exports = { einrichten, zuruecksetzen };
