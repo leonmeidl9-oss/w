@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bladebound</title>
+<style>
+  @font-face { font-family: 'CinzelBB'; src: url('fonts/Cinzel-Variable.ttf'); font-weight: 400 900; }
+  @font-face { font-family: 'CinzelDecoBB'; src: url('fonts/CinzelDecorative-Black.ttf'); font-weight: 900; }
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; overflow: hidden; }
+  #stage canvas { position: absolute; left: 0; top: 0; display: block; }
+  #logo { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./node_modules/three/build/three.module.js",
+  "three/addons/": "./node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"><canvas id="c"></canvas><svg id="logo" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
