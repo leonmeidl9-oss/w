@@ -1,14 +1,30 @@
-// ─────────────────────────────────────────────────────────────
-//  Hier kannst du alles anpassen: Namen, Farben, Texte.
-//  Der Bot erstellt nur, was noch fehlt – du kannst ihn also
-//  gefahrlos mehrmals starten.
-// ─────────────────────────────────────────────────────────────
-
 module.exports = {
+  // ═════════════════════════════════════════════════════════════
+  //  ✏️  HIER AUSFÜLLEN
+  // ═════════════════════════════════════════════════════════════
+
+  // Bot-Token aus dem Discord Developer Portal (Bot → Reset Token).
+  // ⚠️ Niemals teilen und diese Datei mit Token nie auf GitHub hochladen!
+  token: 'HIER_DEIN_BOT_TOKEN',
+
+  // ID deines Discord-Servers. Leer lassen, wenn der Bot nur auf einem Server ist.
+  // (Discord-Einstellungen → Erweitert → Entwicklermodus an, dann Rechtsklick
+  //  auf deinen Server → "Server-ID kopieren")
+  serverId: '',
+
+  // Link zu deinem Roblox-Spiel – steht dann in #willkommen. Leer lassen = kein Link.
+  spielLink: '',
+
   // true  = Neue Leute sehen nur START und müssen erst in #regeln auf
   //         "Regeln akzeptieren" klicken. Dafür muss der Bot DAUERHAFT online sein.
   // false = Alle sehen sofort alles. Der Bot muss nur für die Ping-Buttons laufen.
   regelnBestaetigen: true,
+
+  // ═════════════════════════════════════════════════════════════
+  //  Ab hier optional: Namen, Farben, Texte anpassen.
+  //  Der Bot erstellt nur, was noch fehlt – du kannst ihn also
+  //  gefahrlos mehrmals starten.
+  // ═════════════════════════════════════════════════════════════
 
   // Diese Rolle bekommt man durch das Akzeptieren der Regeln
   mitgliedRolle: 'Bladeborn',

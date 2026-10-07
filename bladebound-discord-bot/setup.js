@@ -138,6 +138,10 @@ async function nachrichtPosten(kanal, art, { kanaele, rollen, ctx, botId }) {
   let text = n.text.replace(/\{#([^}]+)\}/g, (_, name) => (kanaele[name] ? `<#${kanaele[name].id}>` : `#${name}`));
   const buttons = [];
 
+  if (art === 'willkommen' && config.spielLink) {
+    text += `\n\n🎮 **Jetzt spielen:** ${config.spielLink}`;
+  }
+
   if (art === 'regeln' && config.regelnBestaetigen) {
     text += `\n\n${n.button}`;
     buttons.push(

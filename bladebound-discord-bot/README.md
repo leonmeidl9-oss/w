@@ -22,44 +22,41 @@ Rollen: Owner, Admin, Moderator, Content Creator, Bladeborn,
 **1. Bot erstellen**
 1. Geh auf <https://discord.com/developers/applications> → **New Application** → Name eingeben.
 2. Links auf **Bot** → **Reset Token** → Token kopieren.
-3. Links auf **General Information** → **Application ID** kopieren.
 
-**2. Bot auf deinen Server einladen**
+**2. Ausfüllen**
 
-Ersetze `DEINE_APPLICATION_ID` und öffne den Link:
+Öffne `config.js`. Ganz oben unter **HIER AUSFÜLLEN** steht alles, was du eintragen musst:
 
-```
-https://discord.com/oauth2/authorize?client_id=DEINE_APPLICATION_ID&scope=bot&permissions=8
-```
+| Feld | Was rein muss |
+|---|---|
+| `token` | Dein Bot-Token (Pflicht) |
+| `serverId` | ID deines Servers (nur nötig, wenn der Bot auf mehreren Servern ist) |
+| `spielLink` | Link zu deinem Roblox-Spiel (optional) |
+| `regelnBestaetigen` | `true` = Regeln per Button akzeptieren, `false` = alle sehen sofort alles |
 
-(`permissions=8` = Administrator, das braucht der Bot zum Erstellen.)
+⚠️ Den Token nie teilen und `config.js` mit Token nie auf GitHub hochladen.
 
 **3. Starten**
 
-Du brauchst [Node.js](https://nodejs.org) (LTS-Version). Dann im Ordner `bladebound-discord-bot`:
+1. [Node.js](https://nodejs.org) installieren (LTS-Version).
+2. **`start.bat` doppelklicken.** Beim ersten Start installiert sie die nötigen Pakete.
+3. Wenn der Bot noch nicht auf deinem Server ist, zeigt das Fenster einen
+   Einladungslink. Öffne ihn und wähle deinen Server aus. Danach richtet der
+   Bot alles automatisch ein.
 
-```bash
-npm install
-cp .env.example .env     # unter Windows: copy .env.example .env
-```
-
-Öffne `.env` und trag deinen Token bei `DISCORD_TOKEN=` ein. Dann:
-
-```bash
-npm start
-```
-
-Der Bot erstellt alles und schreibt in die Konsole, was er gemacht hat.
+Das Fenster muss offen bleiben, solange der Bot laufen soll.
 
 ## Gut zu wissen
 
 - **Mehrmals starten ist kein Problem.** Der Bot erstellt nur, was noch fehlt.
   Bereits vorhandene Kanäle und Rollen werden nicht verändert.
-- **Der Bot muss online bleiben**, damit die Buttons in `#regeln` und `#rollen`
-  funktionieren. Ohne Bot kann niemand die Regeln akzeptieren und neue Leute
-  sehen nur START. Wenn du den Bot nicht dauerhaft laufen lassen willst,
-  setz in `config.js` `regelnBestaetigen: false`, **bevor** du ihn startest.
-  Dann sehen alle sofort alles.
+- **Der Bot läuft nur, solange dein PC an ist und das Fenster offen ist.**
+  Bei `regelnBestaetigen: true` kann in der Zeit, in der er aus ist, niemand die
+  Regeln akzeptieren. Neue Leute sehen dann nur START. Wenn dein PC nicht
+  dauerhaft läuft, setz `regelnBestaetigen: false`, **bevor** du den Bot zum
+  ersten Mal startest.
+- **Automatisch mit Windows starten:** `Win + R` → `shell:startup` eingeben →
+  eine Verknüpfung zu `start.bat` in den Ordner legen.
 - **Gib dir selbst die Rolle „Owner“** (Servereinstellungen → Mitglieder).
 - Die alten Standard-Kanäle (`#general` usw.) kannst du danach von Hand löschen.
 - Wenn die Buttons „Das hat nicht geklappt“ sagen, zieh die Bot-Rolle in
@@ -67,5 +64,5 @@ Der Bot erstellt alles und schreibt in die Konsole, was er gemacht hat.
 
 ## Anpassen
 
-Alles steht in `config.js`: Kanalnamen, Rollen, Farben, Slowmode und die Texte
+Unter dem Ausfüll-Bereich in `config.js` stehen Kanalnamen, Rollen, Farben, Slowmode und die Texte
 für Willkommen, Regeln und Ping-Rollen.

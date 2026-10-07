@@ -1,37 +1,54 @@
 const { Client, Events, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { einrichten } = require('./setup');
+const config = require('./config');
 
-try {
-  process.loadEnvFile('.env');
-} catch {
-  // Keine .env-Datei – dann muss DISCORD_TOKEN anders gesetzt sein
-}
-
-const { DISCORD_TOKEN, GUILD_ID } = process.env;
-if (!DISCORD_TOKEN) {
-  console.error('❌ Kein Token gefunden. Kopiere .env.example zu .env und trag deinen Bot-Token ein.');
+const { token } = config;
+if (!token || token === 'HIER_DEIN_BOT_TOKEN') {
+  console.error('❌ Kein Token gefunden. Trag deinen Bot-Token ganz oben in config.js ein.');
   process.exit(1);
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+let gestartet = false;
 
-client.once(Events.ClientReady, async () => {
-  console.log(`🤖 Eingeloggt als ${client.user.tag}`);
+function passenderServer() {
+  if (config.serverId) return client.guilds.cache.get(config.serverId);
+  return client.guilds.cache.size === 1 ? client.guilds.cache.first() : null;
+}
 
-  const guild = GUILD_ID ? client.guilds.cache.get(GUILD_ID) : client.guilds.cache.size === 1 ? client.guilds.cache.first() : null;
-  if (!guild) {
-    const liste = client.guilds.cache.map((g) => `  - ${g.name} (${g.id})`).join('\n') || '  (keiner)';
-    console.error(`❌ Server nicht gefunden. Trag die richtige GUILD_ID in .env ein.\nDer Bot ist auf:\n${liste}`);
-    process.exit(1);
-  }
-
+async function starten(guild) {
+  gestartet = true;
   try {
     await einrichten(guild, client.user.id);
-    console.log('🟢 Der Bot bleibt online, damit die Buttons in #regeln und #rollen funktionieren. (Strg+C beendet ihn)');
+    console.log('🟢 Der Bot bleibt online, damit die Buttons in #regeln und #rollen funktionieren. (Fenster schließen beendet ihn)');
   } catch (err) {
     console.error('❌ Fehler beim Einrichten:', err.message);
     process.exit(1);
   }
+}
+
+client.once(Events.ClientReady, () => {
+  console.log(`🤖 Eingeloggt als ${client.user.tag}`);
+
+  const guild = passenderServer();
+  if (guild) return starten(guild);
+
+  if (!config.serverId && client.guilds.cache.size > 1) {
+    const liste = client.guilds.cache.map((g) => `  - ${g.name} (${g.id})`).join('\n');
+    console.error(`❌ Der Bot ist auf mehreren Servern. Trag oben in config.js die richtige serverId ein:\n${liste}`);
+    process.exit(1);
+  }
+
+  console.log('\n📨 Der Bot ist noch nicht auf deinem Server. Lade ihn mit diesem Link ein:');
+  console.log(`   https://discord.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=8`);
+  console.log('   Sobald er drin ist, geht es automatisch los …');
+});
+
+// Bot wurde gerade eingeladen → jetzt einrichten
+client.on(Events.GuildCreate, () => {
+  if (gestartet) return;
+  const guild = passenderServer();
+  if (guild) starten(guild);
 });
 
 // Buttons in #regeln und #rollen
@@ -66,7 +83,7 @@ client.on(Events.InteractionCreate, async (i) => {
   }
 });
 
-client.login(DISCORD_TOKEN).catch((err) => {
+client.login(token).catch((err) => {
   console.error('❌ Login fehlgeschlagen – ist der Token richtig?', err.message);
   process.exit(1);
 });
