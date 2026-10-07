@@ -3,7 +3,7 @@ import { buildComposer } from './post.js';
 import { buildLogo } from './logo.js';
 
 // Renders one Bladebound artwork. URL parameters:
-//   scene=titan|monument|forge|portals|duel   which picture (default titan)
+//   scene=titan|monument|forge|portals|duel|icon   which picture (default titan)
 //   mode=icon                                  512x512 icon framing (titan scene)
 //   w, h                                       output size in CSS pixels
 //   logo=0                                     hide the logo
@@ -11,8 +11,9 @@ import { buildLogo } from './logo.js';
 const q = new URLSearchParams(location.search);
 const SCENE = q.get('scene') || 'titan';
 const MODE = q.get('mode') || 'thumb';
-const W = +(q.get('w') || (MODE === 'icon' ? 512 : 1920));
-const H = +(q.get('h') || (MODE === 'icon' ? 512 : 1080));
+const SQUARE = MODE === 'icon' || SCENE === 'icon';
+const W = +(q.get('w') || (SQUARE ? 512 : 1920));
+const H = +(q.get('h') || (SQUARE ? 512 : 1080));
 const DPR = window.devicePixelRatio || 1;
 const ONLY = (q.get('only') || '').split(',').filter(Boolean);
 const want = (k) => ONLY.length === 0 || ONLY.includes(k);
@@ -34,7 +35,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 await Promise.all(['900 100px CinzelBB', '700 100px CinzelBB', '900 100px CinzelDecoBB'].map((f) => document.fonts.load(f)));
 
 const { build } = await import(`./scenes/${SCENE}.js`);
-const { scene, camera, logo, post } = await build({ W, H, DPR, MODE, q, want, renderer });
+const { scene, camera, logo, logoView, post } = await build({ W, H, DPR, MODE, q, want, renderer });
 
 let renderCam = camera;
 if (q.get('zoom') && SCENE !== 'titan') {
@@ -54,7 +55,7 @@ const logoSvg = document.getElementById('logo');
 logoSvg.setAttribute('width', W);
 logoSvg.setAttribute('height', H);
 if (logo && q.get('logo') !== '0') {
-  logoSvg.setAttribute('viewBox', MODE === 'icon' ? '0 0 512 512' : '0 0 1920 1080');
+  logoSvg.setAttribute('viewBox', logoView || (MODE === 'icon' ? '0 0 512 512' : '0 0 1920 1080'));
   logoSvg.innerHTML = buildLogo(logo);
 }
 await new Promise((r) => setTimeout(r, 200));

@@ -1,4 +1,4 @@
-# Bladebound – Thumbnails & Icon
+# Bladebound – Thumbnails & Icons
 
 Artwork für das Roblox-Schwertkampfspiel **Bladebound**, komplett als 3D-Szenen gebaut. Alle Bilder haben
 denselben Stil (dramatisches Licht, leuchtende Schwerter, Blockfiguren im Roblox-Look) und dasselbe Logo,
@@ -12,7 +12,8 @@ zeigen aber jeweils einen anderen Teil des Spiels.
 | `Bladebound_Thumbnail_4_Portale.png` | Der Held auf dem Weg zum Eisportal, dahinter die versiegelten Welt-Tore |
 | `Bladebound_Thumbnail_5_Duell.png` | Duell im Steinkreis bei Sonnenuntergang |
 | `Bladebound_Thumbnail_1_Titan_ohne_Logo.png` | Bild 1 ohne Logo, z. B. für eigene Texte |
-| `Bladebound_Icon.png` | Spiel-Icon (512 × 512) |
+| `Bladebound_Icon.png` | Spiel-Icon (512 × 512): der Held mit erhobenem Blitz-Schwert vor der roten Finsternis |
+| `Bladebound_Icon_Alternative_Titan.png` | Alternatives Icon (512 × 512): Held und Titan unter der Finsternis |
 
 Alle Thumbnails sind 1920 × 1080 groß. Hochladen kannst du sie im Roblox Creator Hub in den Einstellungen
 deines Spiels (Icon und Thumbnails); mehrere Thumbnails zeigt Roblox nacheinander an.
@@ -33,7 +34,7 @@ Die PNGs werden direkt in `bladebound/` überschrieben.
 
 Wo was steckt:
 
-- `js/scenes/`: je eine Datei pro Bild (`titan`, `monument`, `forge`, `portals`, `duel`) mit Kamera, Licht und Aufbau
+- `js/scenes/`: je eine Datei pro Bild (`titan`, `monument`, `forge`, `portals`, `duel`, `icon`) mit Kamera, Licht und Aufbau
 - `js/avatar.js`: Roblox-Figuren (Gesicht, Frisur, Kleidung, Pose)
 - `js/village.js`: Bausteine aus dem Spiel (Tannen, Klippen, Laternen, Häuser, Marktstand, Portale, Monument, Gras)
 - `js/forge.js`: Schmiede, Amboss, Esse, Waffenständer
@@ -42,6 +43,6 @@ Wo was steckt:
 - `js/logo.js`: das BLADEBOUND-Logo
 
 Zum Ausprobieren im Browser startest du in `source/` einen lokalen Server (z. B. `npx http-server`) und öffnest
-`scene.html` mit Parametern, z. B. `?scene=forge`, `?scene=duel&logo=0` oder `?mode=icon`.
+`scene.html` mit Parametern, z. B. `?scene=forge`, `?scene=duel&logo=0` oder `?scene=icon`.
 
 Schriften: Cinzel und Cinzel Decorative (SIL Open Font License, siehe `source/fonts/`).

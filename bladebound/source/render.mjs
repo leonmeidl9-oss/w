@@ -1,4 +1,4 @@
-// Renders the Bladebound thumbnails and icon with headless Chromium.
+// Renders the Bladebound thumbnails and icons with headless Chromium.
 //   npm install
 //   npx playwright install chromium
 //   npm run render              (all pictures)
@@ -21,7 +21,8 @@ const allJobs = [
   { file: 'Bladebound_Thumbnail_3_Schmiede.png', w: 1920, h: 1080, query: 'scene=forge' },
   { file: 'Bladebound_Thumbnail_4_Portale.png', w: 1920, h: 1080, query: 'scene=portals' },
   { file: 'Bladebound_Thumbnail_5_Duell.png', w: 1920, h: 1080, query: 'scene=duel' },
-  { file: 'Bladebound_Icon.png', w: 512, h: 512, query: 'scene=titan&mode=icon' },
+  { file: 'Bladebound_Icon.png', w: 512, h: 512, query: 'scene=icon' },
+  { file: 'Bladebound_Icon_Alternative_Titan.png', w: 512, h: 512, query: 'scene=titan&mode=icon' },
 ];
 const filter = (process.argv[2] || '').toLowerCase();
 const jobs = allJobs.filter((j) => j.file.toLowerCase().includes(filter));
