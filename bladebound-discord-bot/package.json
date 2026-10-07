@@ -1,0 +1,16 @@
+{
+  "name": "bladebound-discord-bot",
+  "version": "1.0.0",
+  "description": "Erstellt den Bladebound Community-Discord (Rollen, Kanäle, Regeln, Ping-Rollen)",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  }
+}
